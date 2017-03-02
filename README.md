@@ -1,7 +1,29 @@
 # oc-tag-wrapper
 Script that wraps oc tag to help with release management
 
-This script has different functions.
+
+## oc-tag options
+
+    $ oc-tag
+
+    Usage:
+     oc-tag [-c] [-i <source-project>] [-s <image-stream-name>] -t <tag-name> [-o <target-project>] [-q <source-tag>]
+
+    Tags the ImageStream of the <source-project> with <tag-name> in the <target-project>
+      if -c is given, oc-tag checks what tags are set on latest ImageStream
+      if -i is omitted, the current working project will be used
+      if -o is omitted, the current working project will be used
+      if -s is omitted, the first image stream will be used
+      if -q is given, the <source-tag> tagged version is used to tag
+
+      -i, --source-project    specify the source project to use or the current if omitted
+      -s, --image-stream-name specify the name of the image stream or the first one if omitted
+      -t, --tag-name          specify the name of the tag to use
+      -o, --target-project    specify the name of the target project or use the current if omitted
+      -q, --source-tag        specify the name of the source tag
+      -c, --check-tag         print all Tags which point on 'latest'
+      -h, --help			  print help and exit
+
 
 ## Make it easy to tag images
 First of all it was created to simplify oc tag behavior as it is really to tag the right image. For this purpose, simply call
