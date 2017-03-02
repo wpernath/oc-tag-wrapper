@@ -4,9 +4,10 @@
 
 function help {
   echo "Usage:"
-  echo " oc-tag [-i <source-project>] [-s <image-stream-name>] -t <tag-name> [-o <target-project>] [-q <source-tag>] "
+  echo " oc-tag [-c] [-i <source-project>] [-s <image-stream-name>] -t <tag-name> [-o <target-project>] [-q <source-tag>] "
   echo ""
   echo "Tags the ImageStream of the <source-project> with <tag-name> in the <target-project>"
+  echo "  if -c is given, oc-tag checks what tags are set on latest ImageStream"
   echo "  if -i is omitted, the current working project will be used"
   echo "  if -o is omitted, the current working project will be used"
   echo "  if -s is omitted, the first image stream will be used"
@@ -17,6 +18,8 @@ function help {
   echo "  -t, --tag-name          specify the name of the tag to use"
   echo "  -o, --target-project    specify the name of the target project or use the current if omitted "
   echo "  -q, --source-tag        specify the name of the source tag  "
+  echo "  -c, --check-tag         print all Tags which point on 'latest'"
+  echo "  -h, --help			  print help and exit"
   echo ""
 }
 
@@ -25,9 +28,10 @@ SOURCE_PROJECT=""
 TARGET_PROJECT=""
 IMAGE_STREAM=""
 SOURCE_TAG=""
+CHECK_TAG=""
 
-function tagImage {
-	if [[ $TAG_NAME == "" ]]; then
+function tagImage {	
+	if [[ $TAG_NAME == "" && $CHECK_TAG == "" ]]; then
 		echo "ERROR! you have to specify -t <tag-name>"
 		help
 		return 1
@@ -46,35 +50,48 @@ function tagImage {
 		echo "Image Stream name not given. Using '$IMAGE_STREAM'..."
 	fi
 	
-	if [[ $SOURCE_TAG == "" ]]; then
-		echo "Tagging 'latest' image stream '$IMAGE_STREAM' from '$SOURCE_PROJECT' to target project '$TARGET_PROJECT' with tag '$TAG_NAME'..."
-	
-		# getting imagestream ID
-		# this algorythm is just taking the FIRST entry of the line starting with a '*'
-		imageID=$(oc describe is $IMAGE_STREAM | grep \* | awk -F$'/' '{print $3}' | head -n 1)
-		imageID="$SOURCE_PROJECT/"$imageID
-	
-		#echo "oc tag $imageID $TARGET_PROJECT/$IMAGE_STREAM:$TAG_NAME "
-		oc tag $imageID $TARGET_PROJECT/$IMAGE_STREAM:$TAG_NAME
+	if [[ $CHECK_TAG != "" ]]; then
+		echo "Checks where 'latest' IS of $IMAGE_STREAM points to"
+		oc describe is $IMAGE_STREAM > /tmp/is.tmp
+		imageID=$(cat /tmp/is.tmp | grep \* | awk -F$'/' '{print $3}' | head -n 1)
+		
+		tagNames=$(cat /tmp/is.tmp | grep -B 1 "tagged from $imageID" | sed '/^  tagged from/d' | sed '/^--/d')
+		for tag in $tagNames ; do
+			echo "'latest' points on $tag"
+		done
+		return;
 	else
-		echo "Tagging '$SOURCE_TAG' image stream '$IMAGE_STREAM' from '$SOURCE_PROJECT' to target project '$TARGET_PROJECT' with tag '$TAG_NAME'..."
-		
-		oc tag $SOURCE_PROJECT/$IMAGE_STREAM:$SOURCE_TAG $TARGET_PROJECT/$IMAGE_STREAM:$TAG_NAME
-	fi
+
+		if [[ $SOURCE_TAG == "" ]]; then
+			echo "Tagging 'latest' image stream '$IMAGE_STREAM' from '$SOURCE_PROJECT' to target project '$TARGET_PROJECT' with tag '$TAG_NAME'..."
 	
-	if [[ $SOURCE_PROJECT != $TARGET_PROJECT ]]; then
-		echo "Source project != target project. Tagging image stream in target project to $TAG_NAME"
-		oc project $TARGET_PROJECT
-		oc label is $IMAGE_STREAM APP_VERSION=$TAG_NAME --overwrite
-		oc project $SOURCE_PROJECT
+			# getting imagestream ID
+			# this algorythm is just taking the FIRST entry of the line starting with a '*'
+			imageID=$(oc describe is $IMAGE_STREAM | grep \* | awk -F$'/' '{print $3}' | head -n 1)
+			imageID="$SOURCE_PROJECT/"$imageID
+	
+			#echo "oc tag $imageID $TARGET_PROJECT/$IMAGE_STREAM:$TAG_NAME "
+			oc tag $imageID $TARGET_PROJECT/$IMAGE_STREAM:$TAG_NAME
+		else
+			echo "Tagging '$SOURCE_TAG' image stream '$IMAGE_STREAM' from '$SOURCE_PROJECT' to target project '$TARGET_PROJECT' with tag '$TAG_NAME'..."
 		
-		if [[ $SOURCE_TAG != "" ]]; then
-			echo "Source project != target project. Tagging image stream in target project to $SOURCE_TAG"			
-			oc tag $TARGET_PROJECT/$IMAGE_STREAM:$TAG_NAME $TARGET_PROJECT/$IMAGE_STREAM:$SOURCE_TAG
+			oc tag $SOURCE_PROJECT/$IMAGE_STREAM:$SOURCE_TAG $TARGET_PROJECT/$IMAGE_STREAM:$TAG_NAME
 		fi
+	
+		if [[ $SOURCE_PROJECT != $TARGET_PROJECT ]]; then
+			echo "Source project != target project. Tagging image stream in target project to $TAG_NAME"
+			oc project $TARGET_PROJECT
+			oc label is $IMAGE_STREAM APP_VERSION=$TAG_NAME --overwrite
+			oc project $SOURCE_PROJECT
 		
-	else
-		oc label is $IMAGE_STREAM APP_VERSION=$TAG_NAME --overwrite
+			if [[ $SOURCE_TAG != "" ]]; then
+				echo "Source project != target project. Tagging image stream in target project to $SOURCE_TAG"			
+				oc tag $TARGET_PROJECT/$IMAGE_STREAM:$TAG_NAME $TARGET_PROJECT/$IMAGE_STREAM:$SOURCE_TAG
+			fi
+		
+		else
+			oc label is $IMAGE_STREAM APP_VERSION=$TAG_NAME --overwrite
+		fi
 	fi
 }
 
@@ -109,7 +126,7 @@ if [[ "$__PLATFORM" == "macosx" ]]; then
 fi
 
 
-args=$($__GETOPT -o i:s:t:o:q: --long source-project:,image-stream-name:,tag-name:,target-project:,source-tag: -u -- "$@")
+args=$($__GETOPT -o i:s:t:o:q:hc --long source-project:,image-stream-name:,tag-name:,target-project:,source-tag:,help,check-tag -u -- "$@")
 
 if [ $? != 0 ]
 	then
@@ -135,13 +152,18 @@ do
 			shift; shift;;			
 	    -q|--source-tag)
 			SOURCE_TAG=$2
-			shift; shift;;			
-
+			shift; shift;;	
+		-c|--check-tag)
+			CHECK_TAG="1"
+			shift; shift;;		
+		-h|--help)
+			help
+			exit 1;
+			;;
 	    --) shift ; break ;;		
 	esac	
 done
 
-echo ""
 echo ""
 
 #echo "SOURCE_PROJECT = $SOURCE_PROJECT"
