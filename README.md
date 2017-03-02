@@ -30,3 +30,60 @@ Now you can continue develop your code in *development* and once you're ready, y
 Now latest points to RELEASE_1_1, so OpenShift would start a new deployment in testing project and the label *APP_VERSION* is moved to RELEASE_1_1. 
 
 Now within the OpenShift UI you can always see which version of your application is currently deployed. 
+
+
+## Print all TAGs on latest ImageStream
+
+Assume, you're having your App running since a long time. You now would like to know which version of the App is currently running. Of course, you've always properly tagged your running application with a meaningful name (RELEASE_1_0 etc.). 
+
+oc describe is provides you with everything you want to know:
+
+    $ oc describe is
+    Name:			helloworld
+    Namespace:		development
+    Created:		2 hours ago
+    Labels:			APP_VERSION=PRERELEASE_1_1
+                app=helloworld
+    Annotations:		openshift.io/generated-by=OpenShiftWebConsole
+    Docker Pull Spec:	172.30.129.85:5000/development/helloworld
+    Unique Images:		2
+    Tags:			4
+
+    latest
+      pushed image
+
+      * 172.30.129.85:5000/development/helloworld@sha256:d3122fda31b581b1fd09ee2a4fac0acc2c373635028de430b187bc9250f5fa28
+          About an hour ago
+        172.30.129.85:5000/development/helloworld@sha256:3dd31966935111ce624daf10409122d5ddd8127ac83a805d50d61d9b64c21a85
+          2 hours ago
+
+    PRERELEASE_1_1
+      tagged from helloworld@sha256:d3122fda31b581b1fd09ee2a4fac0acc2c373635028de430b187bc9250f5fa28
+
+      * 172.30.129.85:5000/development/helloworld@sha256:d3122fda31b581b1fd09ee2a4fac0acc2c373635028de430b187bc9250f5fa28
+          38 minutes ago
+
+    RELEASE_1_0
+      tagged from helloworld@sha256:3dd31966935111ce624daf10409122d5ddd8127ac83a805d50d61d9b64c21a85
+
+      * 172.30.129.85:5000/development/helloworld@sha256:3dd31966935111ce624daf10409122d5ddd8127ac83a805d50d61d9b64c21a85
+          2 hours ago
+
+    RELEASE_1_1
+      tagged from helloworld@sha256:d3122fda31b581b1fd09ee2a4fac0acc2c373635028de430b187bc9250f5fa28
+
+      * 172.30.129.85:5000/development/helloworld@sha256:d3122fda31b581b1fd09ee2a4fac0acc2c373635028de430b187bc9250f5fa28
+          About an hour ago
+
+But it is quite hard, to really understand which TAG is currently being used as 'latest'. 
+
+    $ oc-tag -c
+    oc-tag -c
+
+    Image Stream name not given. Using 'helloworld'...
+    Checks where 'latest' IS of helloworld points to
+    'latest' points on PRERELEASE_1_1
+    'latest' points on RELEASE_1_1
+    
+oc-tag -c helps here. As you can see, it returns a list of all Tags on 'latest'. 
+
